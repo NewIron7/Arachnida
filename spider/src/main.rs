@@ -1,3 +1,5 @@
+use std::{fs::File, io::Write};
+
 use clap::{command, value_parser, Arg};
 use reqwest::blocking::Client;
 
@@ -49,7 +51,22 @@ fn main() {
     println!("{recu}");
     println!("{level}");
     println!("{path}");
-    let _ = get_content_url(url);
+    let content = get_content_url(url);
+
+    if content.is_ok() {
+        let content = content.unwrap();
+        let filename = "index.html".to_string();
+        let _ = put_content_in_file(&content, &path, &filename);
+    }
+}
+
+///Function that is used to put content in a file
+fn put_content_in_file(content: &String, path: &String, filename: &String) -> Result<(), ()> {
+    //create the directory if it does not exist
+    std::fs::create_dir_all(path).unwrap();
+    let mut file = File::create(format!("{path}{filename}")).unwrap();
+    file.write_all(content.as_bytes()).unwrap();
+    Ok(())
 }
 
 fn get_content_url(url: &String) -> Result<String, ()> {
