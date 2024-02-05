@@ -1,3 +1,10 @@
+# ARACHNIDA
+
+Two school projects: Spider and Scorpion. Both are simple, yet practical command-line tools created using the Rust programming language.
+
+**Spider** is a tool designed to download images from a website.
+
+**Scorpion** is a utility for viewing the metadata and EXIF data of files.
 
 # 🕷️ Spider
 
@@ -47,6 +54,43 @@ Run the program with the required and optional arguments:
 - Specify a custom path for saving images:
   ```
   ./target/release/spider -p /path/to/save http://example.com
+  ```
+
+# 🦂 Scorpion
+
+## 🌐 Overview
+Scorpion is a command-line tool written in Rust, designed for viewing metadata and EXIF data of files. It's a straightforward tool for quick insights into file properties.
+
+## 🌟 Features
+- **Metadata Viewing**: Display basic file metadata like size, creation, modification, and access times.
+- **EXIF Data Extraction**: Extract and display EXIF data from images.
+
+## 🛠️ Requirements
+- Rust Programming Language
+- `exif` and `chrono` Rust crates for handling EXIF data and time formats.
+
+## ⚙️ Installation
+Clone the repository and build the project using Cargo:
+```
+git clone <repository-url>
+cd scorpion
+cargo build --release
+```
+
+## 🚀 Usage
+Run the program with the file names as arguments:
+```
+./target/release/scorpion <file1> <file2> ...
+```
+
+## 📚 Examples
+- View metadata and EXIF data of a single file:
+  ```
+  ./target/release/scorpion photo.jpg
+  ```
+- View metadata and EXIF data of multiple files:
+  ```
+  ./target/release/scorpion image1.jpg image2.png
   ```
 
 ## 🙏 Acknowledgements
