@@ -1,8 +1,7 @@
 use std::io::Write;
-
 use reqwest::blocking::Client;
 use regex::Regex;
-use colored::Colorize; // Import the 'colored' crate
+use colored::Colorize;
 
 
 pub fn get_content_url(url: &String) -> Result<String, ()> {
@@ -114,8 +113,8 @@ pub fn save_images(images: &Vec<String>, path: &String) {
             let mut file = std::fs::File::create(format!("{}/{}", path, image_name)).unwrap();
             let bytes = http_result.unwrap().bytes().unwrap();
             file.write_all(&bytes).unwrap();
-            // Print that the image was saved with an emoji
-            println!("{} {}", "✅".green(), image_name); // Use the 'green' method to format the text with color
+
+            println!("{} {}", "✅".green(), image_name);
         }
     }
 }

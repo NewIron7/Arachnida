@@ -5,9 +5,6 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use std::time::SystemTime;
 
-/// Get all arguments from the command line
-/// They are stored in a vector of strings
-/// They represent filnames
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let args: Vec<String> = args[1..].to_vec();

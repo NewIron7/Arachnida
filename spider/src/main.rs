@@ -1,4 +1,3 @@
-
 use clap::{command, value_parser, Arg};
 
 mod utils;
@@ -51,11 +50,6 @@ fn main() {
     if !recu {
         level = &0;
     }
-
-    // println!("{url}");
-    // println!("{recu}");
-    // println!("{level}");
-    // println!("{path}");
 
     download_images(url, path, &mut level.clone());
 }
