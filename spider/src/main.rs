@@ -6,7 +6,7 @@ use utils::*;
 fn main() {
     let matches = command!()
         .version("1.0")
-        .author("Your Name")
+        .author("hboissel")
         .about("Downloads images from a website")
         .arg(
             Arg::new("URL")
