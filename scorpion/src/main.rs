@@ -4,6 +4,7 @@ use exif::Reader;
 use chrono::offset::Utc;
 use chrono::DateTime;
 use std::time::SystemTime;
+use std::io::Error;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -17,6 +18,10 @@ fn main() {
     }
     
     for arg in args {
+        if !file_exists(&arg) {
+            println!("🚫 File not found: {}", arg);
+            continue;
+        }
         println!("🖼️  {}", arg);
         print_metadata(&arg);
         let r = print_exit_data(&arg);
@@ -27,6 +32,12 @@ fn main() {
     }
 }
 
+/// Fucntion to check if the file exists
+/// It takes a path to a file as an argument
+/// It returns a boolean
+fn file_exists(file: &str) -> bool {
+    std::fs::metadata(file).is_ok()
+}
 
 /// Function to print EXIF data from a file
 /// It takes a path to a file as an argument
@@ -55,9 +66,9 @@ fn print_exit_data(file: &str) -> Result<(), ()> {
 fn print_metadata(file: &str) {
     let metadata = std::fs::metadata(file).expect("Failed to read metadata");
     println!("Size: {:.2} MB", metadata.len() as f64 / 1_000_000.0);
-    println!("Modified: {}", format_time(metadata.modified().unwrap()));
-    println!("Created: {:?}", format_time(metadata.created().unwrap()));
-    println!("Accessed: {:?}", format_time(metadata.accessed().unwrap()));
+    println!("Modified: {}", format_time(metadata.modified()));
+    println!("Created: {:?}", format_time(metadata.created()));
+    println!("Accessed: {:?}", format_time(metadata.accessed()));
     println!();
 }
 
@@ -65,7 +76,11 @@ fn print_metadata(file: &str) {
 /// It returns a string
 /// It formats the time into a readable format
 /// It uses the chrono library
-fn format_time(time: SystemTime) -> String {
+fn format_time(time: Result<SystemTime, Error>) -> String {
+    let time = match time {
+        Ok(time) => time,
+        Err(_) => return "N/A".to_string(),
+    };
     let datetime: DateTime<Utc> = time.into();
     let time_readable = format!("{}", datetime.format("%d/%m/%Y %T"));
     time_readable

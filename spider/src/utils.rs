@@ -9,13 +9,22 @@ pub fn get_content_url(url: &String) -> Result<String, ()> {
     let http_result = http_client.get(url).send();
 
     if http_result.is_ok() {
+        let status = http_result
+            .as_ref()
+            .unwrap()
+            .status()
+            .as_u16();
+        if status != 200 {
+            print!("❌ Bad status code: {} ", status);
+            return Err(());
+        }
         let content = http_result
             .unwrap()
             .text()
             .unwrap_or("FAILED".to_string());
         return Ok(content);
     } else {
-        println!("Error occured: {:#?}", http_result);
+        //println!("Error occured: {:#?}", http_result);
         return Err(());
     }
 }

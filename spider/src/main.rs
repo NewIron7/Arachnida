@@ -71,7 +71,7 @@ fn download_images(url: &String, path: &String, level: &mut u16) {
         let content = get_content_url(&current_url);
         if content.is_err() {
             println!("❌ Error occured: {:#?}", current_url);
-            links_to_visit.push(current_url.clone());
+            //links_to_visit.push(current_url.clone());
             continue;
         }
         else {
