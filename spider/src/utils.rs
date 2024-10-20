@@ -1,202 +1,119 @@
-use std::io::Write;
+use clap::builder::Str;
 use reqwest::blocking::Client;
-use regex::Regex;
-use colored::Colorize;
+use std::fs::File;
+use std::io::{self, Bytes, Write};
+use std::path::Path;
+use url::Url;
 
+struct ResponseContent {
+    content_type: String,
+    content_string: String,
+    content_bytes: Vec<u8>,
+}
 
-pub fn get_content_url(url: &String) -> Result<String, ()> {
+pub struct SpiderData {
+    origin_url: String,
+    domain: String,
+}
+
+/// Function that takes a URL and returns the domain
+pub fn get_domain(url: &String) -> String {
+    let domain = {
+        let parsed_url = Url::parse(url);
+        if parsed_url.is_err() {
+            return String::new();
+        }
+        let parsed_url = parsed_url.unwrap();
+        let host = parsed_url.host_str();
+        if host.is_none() {
+            return String::new();
+        }
+        let host = host.unwrap();
+        let port = match parsed_url.port() {
+            Some(port) => format!(":{}", port),
+            None => String::new(),
+        };
+        format!("{}{}", host, port)
+    };
+    domain
+}
+
+impl SpiderData {
+    pub fn new(url: &String) -> SpiderData {
+        let domain = get_domain(url);
+        SpiderData {
+            origin_url: url.clone(),
+            domain: domain,
+        }
+    }
+
+    pub fn print(&self) {
+        println!("Origin URL: {}", self.origin_url);
+        println!("Domain: {}", self.domain);
+    }
+
+    pub fn is_same_domain(&self, url: &String) -> bool {
+        let domain = get_domain(url);
+        domain == self.domain
+    }
+}
+
+/// Function that takes a Response object and returns the status code.
+pub fn get_status_code(response: &reqwest::blocking::Response) -> u16 {
+    response.status().as_u16()
+}
+
+/// Function that takes a Response object and returns the content type.
+pub fn get_content_type(response: &reqwest::blocking::Response) -> String {
+    let headers = response.headers();
+    let content_type = headers.get("Content-Type");
+    if content_type.is_none() {
+        return String::from("");
+    }
+    content_type.unwrap().to_str().unwrap_or("").to_string()
+}
+
+/// Function that is doing a get request against the given URL and returns the response.
+pub fn get_request_url(url: &String) -> Result<ResponseContent, ()> {
     let http_client = Client::new();
     let http_result = http_client.get(url).send();
-
-    if http_result.is_ok() {
-        let status = http_result
-            .as_ref()
-            .unwrap()
-            .status()
-            .as_u16();
-        if status != 200 {
-            print!("❌ Bad status code: {} ", status);
-            return Err(());
-        }
-        let content = http_result
-            .unwrap()
-            .text()
-            .unwrap_or("FAILED".to_string());
-        return Ok(content);
-    } else {
-        //println!("Error occured: {:#?}", http_result);
+    if http_result.is_err() {
         return Err(());
     }
-}
+    let http_result = http_result.unwrap();
 
-pub fn extract_links(content: &String) -> Vec<String> {
-    let mut links: Vec<String> = Vec::new();
-    let re = Regex::new(r#"<a[^>]+href="([^">]+)"#).unwrap();
-    for cap in re.captures_iter(content) {
-        links.push(cap[1].to_string());
-    }
-    links
-}
+    let status_code = get_status_code(&http_result);
+    if status_code == 200 {
+        let content = {
+            let content_type = get_content_type(&http_result);
+            let content_bytes = {
+                let response = http_result.bytes();
+                if response.is_err() {
+                    return Err(());
+                }
+                response.unwrap().to_vec()
+            };
 
-pub fn get_images_from_content(content: &String) -> Vec<String> {
-    let mut images: Vec<String> = Vec::new();
-    let re = Regex::new(r#"<img[^>]+src="([^">]+)"#).unwrap();
-    for cap in re.captures_iter(content) {
-        images.push(cap[1].to_string());
-    }
-    images
-}
-
-/// Function that filters all the images with those extensions
-/// png, jpg, jpeg, gif, bmp
-/// Arguments: images: Vec<String> - the vector of images
-/// Returns: Vec<String> - the vector of images filtered
-pub fn filter_images_extensions(images: Vec<String>) -> Vec<String> {
-    let re = Regex::new(r#".+\.(png|jpg|jpeg|gif|bmp)$"#).unwrap();
-    let mut filtered_images: Vec<String> = Vec::new();
-    for image in images {
-        if re.is_match(&image) {
-            filtered_images.push(image);
-        }
-    }
-    filtered_images
-}
-
-/// Function that removes all images that start with http or https
-/// or //, so the ones that are not relative to the website
-/// Arguments: images: Vec<String> - the vector of images
-/// Returns: Vec<String> - the vector of images filtered
-pub fn filter_absolute_images(images: Vec<String>) -> Vec<String> {
-    let re = Regex::new(r#"(http|https)://|//"#).unwrap();
-    let mut filtered_images: Vec<String> = Vec::new();
-    for image in images {
-        if !re.is_match(&image) {
-            filtered_images.push(image);
-        }
-    }
-    filtered_images
-}
-
-/// Function that returns the full link to the image
-/// Arguments: images: Vec<String> - the vector of images
-/// and url: &String - the url of the website
-/// Returns: Vec<String> - the vector of images with the full url
-/// added to the relative links
-/// Example: /image.png -> http://example.com/image.png
-pub fn add_full_url_to_images(images: Vec<String>, url: &String) -> Vec<String> {
-    let mut full_images: Vec<String> = Vec::new();
-    for image in images {
-        // check if we need to add the / to the url
-        // or if we have to remove it
-        if url.ends_with("/") && image.starts_with("/") {
-            full_images.push(format!("{}{}", url, &image[1..]));
-        } else if !url.ends_with("/") && !image.starts_with("/") {
-            full_images.push(format!("{}/{}", url, image));
-        } else {
-            full_images.push(format!("{}{}", url, image));
-        }
-    }
-    full_images
-}
-
-/// Function which saves the images from the website
-/// in the path specified
-/// Arguments: images: Vec<String> - the vector of images
-/// path: &String - the path to save the images
-/// Returns: ()
-pub fn save_images(images: &Vec<String>, path: &String) {
-    // create the directory if it does not exist
-    std::fs::create_dir_all(path).unwrap();
-    // remove the last / if it exists
-    let path = if path.ends_with("/") {
-        &path[..path.len() - 1]
+            let content_string = String::from_utf8(content_bytes.clone());
+            if content_string.is_err() {
+                return Err(());
+            }
+            let content_string = content_string.unwrap();
+            ResponseContent {
+                content_type: content_type,
+                content_string: content_string,
+                content_bytes: content_bytes.to_vec(),
+            }
+        };
+        Ok(content)
     } else {
-        path
-    };
-    for image in images {
-        let http_client = Client::new();
-        let http_result = http_client.get(image).send();
-        if http_result.is_ok() {
-            // get name of the image
-            let image_name = image.split("/").last().unwrap();
-            let mut file = std::fs::File::create(format!("{}/{}", path, image_name)).unwrap();
-            let bytes = http_result.unwrap().bytes().unwrap();
-            file.write_all(&bytes).unwrap();
-
-            println!("{} {}", "✅".green(), image_name);
-        }
+        Err(())
     }
 }
 
-/// Function that filters among the links the ones that are valid
-/// a valid link is a relative link that is not a link to an image
-/// Arguments: links: Vec<String> - the vector of links
-pub fn filter_links(links: Vec<String>) -> Vec<String> {
-    let re = Regex::new(r#".+\.(png|jpg|jpeg|gif|bmp)$"#).unwrap();
-    let mut filtered_links: Vec<String> = Vec::new();
-    for link in links {
-        if !re.is_match(&link) && !link.starts_with("#") {
-            filtered_links.push(link);
-        }
-    }
-    filtered_links
-}
-
-/// Function that filters that starts with a specific url
-/// Arguments: links: Vec<String> - the vector of links
-/// and url: &String - the url of the website
-/// Returns: Vec<String> - the vector of links filtered
-pub fn filter_links_starting_with(links: Vec<String>, url: &String) -> Vec<String> {
-    let mut filtered_links: Vec<String> = Vec::new();
-    for link in links {
-        if link.starts_with(url) {
-            filtered_links.push(link);
-        }
-    }
-    filtered_links
-}
-
-/// Function that merges two vectors of links
-/// Arguments: links1: Vec<String> - the first vector of links
-/// and links2: Vec<String> - the second vector of links
-/// Returns: Vec<String> - the vector of links merged
-/// Example: [1, 2, 3] + [4, 5, 6] = [1, 2, 3, 4, 5, 6]
-pub fn merge_links(links1: Vec<String>, links2: Vec<String>) -> Vec<String> {
-    let mut merged_links: Vec<String> = Vec::new();
-    for link in links1 {
-        merged_links.push(link);
-    }
-    for link in links2 {
-        merged_links.push(link);
-    }
-    merged_links
-}
-
-/// Function that is used to remove duplicates from a vector
-/// Arguments: links: Vec<String> - the vector of links
-/// Returns: Vec<String> - the vector of links without duplicates
-/// Example: [1, 2, 3, 1, 2, 3] -> [1, 2, 3]
-pub fn remove_duplicates(links: Vec<String>) -> Vec<String> {
-    let mut unique_links: Vec<String> = Vec::new();
-    for link in links {
-        if !unique_links.contains(&link) {
-            unique_links.push(link);
-        }
-    }
-    unique_links
-}
-
-/// Function that remove links that are already visited
-/// Arguments: links: Vec<String> - the vector of links
-/// and visited: Vec<String> - the vector of visited links
-/// Returns: Vec<String> - the vector of links without the visited ones
-/// Example: [1, 2, 3, 4, 5] - [2, 4] = [1, 3, 5]
-pub fn remove_visited_links(links: Vec<String>, visited: &Vec<String>) -> Vec<String> {
-    let mut unvisited_links: Vec<String> = Vec::new();
-    for link in links {
-        if !visited.contains(&link) {
-            unvisited_links.push(link);
-        }
-    }
-    unvisited_links
+fn write_vec_to_file(data: &Vec<u8>, file_path: &str) -> io::Result<()> {
+    let mut file = File::create(Path::new(file_path))?;
+    file.write_all(data)?;
+    file.flush()?;
+    Ok(())
 }
