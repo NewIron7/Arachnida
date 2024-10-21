@@ -1,7 +1,16 @@
 use clap::{command, value_parser, Arg};
+use std::collections::HashSet;
 
 mod utils;
-use utils::*;
+use utils::{
+    can_create_folder,
+    check_url,
+};
+
+mod spider;
+use spider::SRequest;
+
+mod parsing;
 
 fn main() {
     let matches = command!()
@@ -37,7 +46,7 @@ fn main() {
             Arg::new("path")
                 .short('p')
                 .long("path")
-                .default_value("./data/")
+                .default_value("./data")
                 .help("Path to save downloaded files"),
         )
         .get_matches();
@@ -47,10 +56,22 @@ fn main() {
     let path: &String = matches.get_one::<String>("path").unwrap();
     let mut level: &u16 = matches.get_one::<u16>("level").unwrap();
 
+    if !can_create_folder(path) {
+        return;
+    }
+    if !check_url(url) {
+        println!("❌ Cannot access URL: {url}");
+        return;
+    }
+
     if !recu {
         level = &0;
     }
 
-    let mut spider = SpiderData::new(url);
-    spider.print();
+    let mut visited_urls: HashSet<String> = HashSet::new();
+    let mut collected_images: Vec<String> = Vec::new();
+    let mut spider = SRequest::new(url, *recu, *level, path);
+    spider.get_all_image_links(&mut visited_urls, &mut collected_images);
+    println!("🟢 Found {} images", collected_images.len());
+    // println!("{collected_images:?}");
 }

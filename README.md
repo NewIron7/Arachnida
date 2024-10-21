@@ -56,6 +56,10 @@ Run the program with the required and optional arguments:
   ./target/release/spider -p /path/to/save http://example.com
   ```
 
+### List of test target
+
+- https://books.toscrape.com/
+
 # 🦂 Scorpion
 
 ## 🌐 Overview
